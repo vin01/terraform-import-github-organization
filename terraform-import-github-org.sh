@@ -245,37 +245,31 @@ get_team_repos () {
 
     PERMS_PAYLOAD=$(curl -H "$AUTH_HEADER" -s "${API_URL_PREFIX}/teams/${TEAM_ID}/repos/${ORG}/${i}?" -H "Accept: application/vnd.github.v3.repository+json")
     ADMIN_PERMS=$(echo "$PERMS_PAYLOAD" | jq -r .permissions.admin )
+    MAINTAIN_PERMS=$(echo "$PERMS_PAYLOAD" | jq -r .permissions.maintain )
+    TRIAGE_PERMS=$(echo "$PERMS_PAYLOAD" | jq -r .permissions.triage )
     PUSH_PERMS=$(echo "$PERMS_PAYLOAD" | jq -r .permissions.push )
     PULL_PERMS=$(echo "$PERMS_PAYLOAD" | jq -r .permissions.pull )
   
     if [[ "${ADMIN_PERMS}" == "true" ]]; then
-      cat >> "github-teams-${TEAM_NAME}.tf" << EOF
-resource "github_team_repository" "${TEAM_NAME}-${TERRAFORM_TEAM_REPO_NAME}" {
-  team_id    = "${TEAM_ID}"
-  repository = "${i}"
-  permission = "admin"
-}
-
-EOF
+      permission="admin"
     elif [[ "${PUSH_PERMS}" == "true" ]]; then
-      cat >> "github-teams-${TEAM_NAME}.tf" << EOF
-resource "github_team_repository" "${TEAM_NAME}-${TERRAFORM_TEAM_REPO_NAME}" {
-  team_id    = "${TEAM_ID}"
-  repository = "${i}"
-  permission = "push"
-}
-
-EOF
+      permission="push"
+    elif [[ "${MAINTAIN_PERMS}" == "true" ]]; then
+      permission="maintain"
+    elif [[ "${TRIAGE_PERMS}" == "true" ]]; then
+      permission="triage"
     elif [[ "${PULL_PERMS}" == "true" ]]; then
-      cat >> "github-teams-${TEAM_NAME}.tf" << EOF
+      permission="pull"
+    fi
+
+    cat >> "github-teams-${TEAM_NAME}.tf" << EOF
 resource "github_team_repository" "${TEAM_NAME}-${TERRAFORM_TEAM_REPO_NAME}" {
   team_id    = "${TEAM_ID}"
   repository = "${i}"
-  permission = "pull"
+  permission = "$permission"
 }
 
 EOF
-    fi
     terraform import "github_team_repository.${TEAM_NAME}-${TERRAFORM_TEAM_REPO_NAME}" "${TEAM_ID}:${i}"
     done
   done
